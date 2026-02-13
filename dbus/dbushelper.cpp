@@ -132,13 +132,18 @@ void DbusHelper::getProperties(const std::string& service,
     bool available = true;
     try
     {
-        getProperty(service, path, StateDecoratorAvailability::interface,
-                    StateDecoratorAvailability::property_names::available,
-                    available);
+        auto availMsg = _bus.new_method_call(
+            service.c_str(), path.c_str(), propertiesintf, "Get");
+        availMsg.append(StateDecoratorAvailability::interface,
+                        StateDecoratorAvailability::property_names::available);
+        std::variant<bool> result;
+        auto responseMsg = _bus.call(availMsg);
+        responseMsg.read(result);
+        available = std::get<bool>(result);
     }
-    catch (const sdbusplus::exception_t& ex)
+    catch (const sdbusplus::exception_t&)
     {
-        // unsupported Available property, leaving reading at 'True'
+        // Optional interface — sensors without it are assumed available
     }
     prop->available = available;
 

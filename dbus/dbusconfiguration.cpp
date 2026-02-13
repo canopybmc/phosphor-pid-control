@@ -513,12 +513,6 @@ bool init(sdbusplus::bus_t& bus, boost::asio::steady_timer& timer,
                 if (interface == SensorValue::interface ||
                     interface == ControlFanPwm::interface)
                 {
-                    // we're not interested in pwm sensors, just pwm control
-                    if (interface == SensorValue::interface &&
-                        objectPair.first.find("pwm") != std::string::npos)
-                    {
-                        continue;
-                    }
                     sensors[objectPair.first] = interface;
                 }
             }
@@ -826,6 +820,20 @@ bool init(sdbusplus::bus_t& bus, boost::asio::steady_timer& timer,
                                 missingAcceptableSensorInterfaces);
                 }
 
+                // When a sensor name matches both Sensor.Value and
+                // Control.FanPwm paths (e.g. PWM-only fans without tach),
+                // keep only the expected interface for each direction.
+                std::erase_if(inputSensorInterfaces, [](const auto& si) {
+                    return si.second != SensorValue::interface;
+                });
+                std::erase_if(outputSensorInterfaces, [](const auto& si) {
+                    return si.second != ControlFanPwm::interface;
+                });
+                std::erase_if(missingAcceptableSensorInterfaces,
+                              [](const auto& si) {
+                    return si.second != SensorValue::interface;
+                });
+
                 for (const SensorInterfaceType& inputSensorInterface :
                      inputSensorInterfaces)
                 {
@@ -958,7 +966,10 @@ bool init(sdbusplus::bus_t& bus, boost::asio::steady_timer& timer,
                             inputSensorInterfaces.at(idx).first;
                         fanSensorName = getSensorNameFromPath(fanPath);
                         pwmSensorName = getSensorNameFromPath(pwmPath);
-                        std::string fanPwmIndex = fanSensorName + pwmSensorName;
+                        std::string fanPwmIndex =
+                            (fanSensorName == pwmSensorName)
+                                ? fanSensorName
+                                : (fanSensorName + pwmSensorName);
                         archivedInputSensorNames.push_back(fanPwmIndex);
                         auto& fanConfig = sensorConfig[fanPwmIndex];
                         fanConfig.type = pidClass;
