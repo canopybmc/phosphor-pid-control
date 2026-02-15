@@ -189,7 +189,18 @@ int eventHandler(sd_bus_message* m, void* context, sd_bus_error*)
             interface};
 
     sdbusplus::message_t message(m);
-    if (std::string(message.get_member()) == "InterfacesAdded")
+    std::string member = message.get_member();
+
+    // Sensor removal does not require a zone rebuild — the PID loop
+    // handles missing sensors gracefully via timeout and
+    // InputUnavailableAsFailed.  Rebuilding on removal causes unnecessary
+    // fan speed spikes during PECI sensor flicker.
+    if (member == "InterfacesRemoved")
+    {
+        return 1;
+    }
+
+    if (member == "InterfacesAdded")
     {
         sdbusplus::message::object_path path;
         std::unordered_map<
