@@ -73,6 +73,7 @@ static std::optional<SensorManager> mgmr;
 } // namespace pid_control
 
 std::filesystem::path configPath = "";
+static unsigned int retryDelaySec = 10;
 
 /* async io context for operation */
 boost::asio::io_context io;
@@ -187,7 +188,7 @@ void restartControlLoops()
 
 void tryRestartControlLoops(bool first)
 {
-    static const auto delayTime = std::chrono::seconds(10);
+    const auto delayTime = std::chrono::seconds(retryDelaySec);
     static boost::asio::steady_timer timer(io);
 
     auto restartLbd = [](const boost::system::error_code& error) {
@@ -322,6 +323,9 @@ int main(int argc, char* argv[])
     app.add_flag("-d,--debug", debugEnabled, "Enable or disable debug mode");
     app.add_flag("-g,--corelogging", coreLoggingEnabled,
                  "Enable or disable logging of core PID loop computations");
+    app.add_option("-r,--retry-delay", retryDelaySec,
+                   "Zone rebuild retry delay in seconds")
+        ->check(CLI::Range(1u, 60u));
 
     CLI11_PARSE(app, argc, argv);
 
